@@ -1,5 +1,5 @@
 {
-  "app": "npx ts-node --prefer-ts-exts bin/aws-cdk-s3-replication-with-prefix.ts",
+  "app": "npx ts-node --prefer-ts-exts bin/app.ts",
   "watch": {
     "include": [
       "**"

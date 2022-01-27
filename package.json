@@ -2,7 +2,7 @@
   "name": "aws-cdk-s3-replication-with-prefix",
   "version": "0.1.0",
   "bin": {
-    "aws-cdk-s3-replication-with-prefix": "bin/aws-cdk-s3-replication-with-prefix.js"
+    "aws-cdk-s3-replication-with-prefix": "bin/app.js"
   },
   "scripts": {
     "build": "tsc",
