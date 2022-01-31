@@ -1,9 +1,13 @@
-import {CfnOutput, PhysicalName, RemovalPolicy, Stack, StackProps} from 'aws-cdk-lib';
+import {CfnOutput, Duration, PhysicalName, RemovalPolicy, Stack, StackProps} from 'aws-cdk-lib';
 import {Construct} from 'constructs';
 import {BlockPublicAccess, Bucket, CfnBucket, EventType, ObjectOwnership} from "aws-cdk-lib/aws-s3";
 import {AccountPrincipal, ArnPrincipal, Effect, PolicyStatement, Role, ServicePrincipal} from "aws-cdk-lib/aws-iam";
 import {Queue} from "aws-cdk-lib/aws-sqs";
 import {SqsDestination} from "aws-cdk-lib/aws-s3-notifications";
+import {NodejsFunction} from "aws-cdk-lib/aws-lambda-nodejs";
+import {Runtime, Tracing} from "aws-cdk-lib/aws-lambda";
+import * as path from "path";
+import {SqsEventSource} from "aws-cdk-lib/aws-lambda-event-sources";
 
 export interface DestinationBucketConfig {
     bucketArn: string,
@@ -19,6 +23,7 @@ export interface S3SourceStackProps extends StackProps {
 export interface S3DestinationStackProps extends StackProps {
     sourceAccount: string,
     sourceRoleName: string
+    destinationPrefix: string
 
 }
 
@@ -45,7 +50,7 @@ export class S3SourceStack extends Stack {
                 "s3:GetObjectVersionTagging",
                 "s3:GetObjectRetention",
 
-                ],
+            ],
             resources: [sourceBucket.arnForObjects("*")]
         })
         const destinationPolicyStatement = new PolicyStatement({
@@ -68,7 +73,7 @@ export class S3SourceStack extends Stack {
         cfnBucket.replicationConfiguration = {
             role: replicationRole.roleArn,
             rules: [{
-                id:props.stagingBucket.bucketArn,
+                id: props.stagingBucket.bucketArn,
                 destination: {
                     bucket: props.stagingBucket.bucketArn,
                     account: props.stagingBucket.accountId,
@@ -131,7 +136,7 @@ export class S3DestinationStack extends Stack {
             objectOwnership: ObjectOwnership.BUCKET_OWNER_ENFORCED,
 
         })
-        const sourcePrincipal:ArnPrincipal = new ArnPrincipal(`arn:aws:iam::${props.sourceAccount}:role/${props.sourceRoleName}`)
+        const sourcePrincipal: ArnPrincipal = new ArnPrincipal(`arn:aws:iam::${props.sourceAccount}:role/${props.sourceRoleName}`)
         stagingBucket.addToResourcePolicy(new PolicyStatement({
             effect: Effect.ALLOW,
             principals: [
@@ -173,9 +178,13 @@ export class S3DestinationStack extends Stack {
 
         const destinationBucket = new Bucket(this, "destination-bucket", {
             blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
-            removalPolicy: RemovalPolicy.DESTROY
+            removalPolicy: RemovalPolicy.DESTROY,
+            versioned: true,
         })
-        const stagingBucketEventQueue = new Queue(this, 'staging-bucket-event-queue');
+        const visibilityTimeout = 60 * 6
+        const stagingBucketEventQueue = new Queue(this, 'staging-bucket-event-queue', {
+            visibilityTimeout: Duration.seconds(visibilityTimeout)
+        });
         stagingBucket.addEventNotification(
             EventType.OBJECT_CREATED,
             new SqsDestination(stagingBucketEventQueue),
@@ -184,19 +193,54 @@ export class S3DestinationStack extends Stack {
             EventType.OBJECT_REMOVED,
             new SqsDestination(stagingBucketEventQueue),
         );
-        // const invokeStepFunction= new NodejsFunction(this, "invokeStepFunction", {
-        //     memorySize: 128,
-        //     timeout: Duration.seconds(5),
-        //     runtime: Runtime.NODEJS_14_X,
-        //     handler: "lambdaHandler",
-        //     entry: path.join(__dirname, `/../../runtime/functions/invokeStepFunction.ts`),
-        //     environment: {
-        //         DESTINATION_BUCKET_NAME: destinationBucket.bucketName
-        //
-        //     },
-        //     tracing: Tracing.ACTIVE,
-        //
-        // });
+        const moveObjectsLambda = new NodejsFunction(this, "moveObjectsLambda", {
+            memorySize: 128,
+            timeout: Duration.seconds(visibilityTimeout / 6),
+            runtime: Runtime.NODEJS_14_X,
+            handler: "lambdaHandler",
+            entry: path.join(__dirname, `../runtime/functions/moveObjectsLambda.ts`),
+            environment: {
+                DESTINATION_BUCKET_NAME: destinationBucket.bucketName,
+                DESTINATION_PREFIX: props.destinationPrefix
+            },
+            tracing: Tracing.DISABLED,
+
+        });
+        stagingBucketEventQueue.grant(moveObjectsLambda,
+            "s3:DeleteMessage"
+        )
+        moveObjectsLambda.addEventSource(new SqsEventSource(stagingBucketEventQueue, {
+            batchSize: 10,
+            enabled: true,
+            reportBatchItemFailures: true
+        }))
+        stagingBucket.grantReadWrite(moveObjectsLambda)
+
+        destinationBucket.grantReadWrite(moveObjectsLambda)
+        moveObjectsLambda.addToRolePolicy(new PolicyStatement({
+            effect: Effect.ALLOW,
+            actions: [
+                "s3:GetObjectVersion",
+                "s3:GetBucketVersioning",
+                "s3:GetObjectTagging",
+                "s3:GetObjectVersionTagging",
+                "s3:PutObjectTagging",
+                "s3:PutObjectVersionTagging"
+            ],
+            resources: [stagingBucket.arnForObjects("*")]
+        }))
+        moveObjectsLambda.addToRolePolicy(new PolicyStatement({
+            effect: Effect.ALLOW,
+            actions: [
+                "s3:GetObjectVersion",
+                "s3:GetBucketVersioning",
+                "s3:GetObjectTagging",
+                "s3:GetObjectVersionTagging",
+                "s3:PutObjectTagging",
+                "s3:PutObjectVersionTagging"
+            ],
+            resources: [destinationBucket.arnForObjects("*")]
+        }))
         new CfnOutput(this, "staging-bucket-name", {
             description: "staging-bucket-name",
             value: stagingBucket.bucketName,

@@ -12,7 +12,8 @@ const destinationStack=new S3DestinationStack(app, 'aws-cdk-s3-replication-with-
         region: "us-east-2"
     },
     sourceRoleName: replicationRoleName,
-    sourceAccount: "149451982790"
+    sourceAccount: "149451982790",
+    destinationPrefix: "149451982790/us-east-2"
 });
 
 new S3SourceStack(app, 'aws-cdk-s3-replication-with-prefix-source-stack', {
