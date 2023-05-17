@@ -68,11 +68,13 @@ export class S3SourceStack extends Stack {
         const serverLogsBucket = new Bucket(this,"source-server-logs",{
             blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
             removalPolicy: RemovalPolicy.DESTROY,
+            autoDeleteObjects: true,
             enforceSSL: true
         })
         const sourceBucket = new Bucket(this, "source-bucket", {
             blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
             removalPolicy: RemovalPolicy.DESTROY,
+            autoDeleteObjects: true,
             versioned: true,
             enforceSSL: true,
             serverAccessLogsBucket: serverLogsBucket,
@@ -179,7 +181,8 @@ export class S3DestinationStack extends Stack {
         const serverLogsBucket = new Bucket(this,"destination-server-logs",{
             blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
             removalPolicy: RemovalPolicy.DESTROY,
-            enforceSSL: true
+            enforceSSL: true,
+            autoDeleteObjects: true,
         })
         const stagingBucket = new Bucket(this, "staging-bucket", {
             blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
@@ -189,7 +192,8 @@ export class S3DestinationStack extends Stack {
             objectOwnership: ObjectOwnership.BUCKET_OWNER_ENFORCED,
             enforceSSL:true,
             serverAccessLogsBucket: serverLogsBucket,
-            serverAccessLogsPrefix: "staging"
+            serverAccessLogsPrefix: "staging",
+            autoDeleteObjects: true,
 
         })
         const sourcePrincipal: ArnPrincipal = new ArnPrincipal(`arn:aws:iam::${props.sourceAccount}:role/${props.sourceRoleName}`)
@@ -238,7 +242,8 @@ export class S3DestinationStack extends Stack {
             versioned: true,
             enforceSSL: true,
             serverAccessLogsBucket: serverLogsBucket,
-            serverAccessLogsPrefix: "destination"
+            serverAccessLogsPrefix: "destination",
+            autoDeleteObjects: true,
         })
         const visibilityTimeout = 60 * 6
         const stagingBucketEventDLQ = new Queue(this, 'staging-bucket-event-queue-dlq', {
