@@ -26,3 +26,13 @@ to a destination bucket in another account with a custom prefix applied to the r
    1) `cdk deploy aws-cdk-s3-replication-with-prefix-destination-stack -c sourceRegion=<sourceRegion> -c sourceAccount=<sourceAccount> -c -destinationAccount=<destinationAccount> -c destinationRegion=<destinationRegion> -c destinationPrefix=<destinationPrefix>`
 3) Deploy the source bucket to the source account with replication rules to the destination account
    1) `cdk deploy aws-cdk-s3-replication-with-prefix-source-stack -c sourceRegion=<sourceRegion> -c sourceAccount=<sourceAccount> -c -destinationAccount=<destinationAccount> -c destinationRegion=<destinationRegion> -c destinationPrefix=<destinationPrefix>`
+
+
+# Security
+
+See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more information.
+
+## License
+
+This library is licensed under the MIT-0 License. See the LICENSE file.
+

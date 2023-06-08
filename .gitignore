@@ -9,3 +9,7 @@ cdk.out
 .idea
 *.iml
 ~$*
+
+*.txt
+.DS_Store
+*.xlsx
