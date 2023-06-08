@@ -275,7 +275,7 @@ export class S3DestinationStack extends Stack {
                 DESTINATION_BUCKET_NAME: destinationBucket.bucketName,
                 DESTINATION_PREFIX: props.destinationPrefix
             },
-            tracing: Tracing.DISABLED,
+            tracing: Tracing.ACTIVE,
 
         });
         stagingBucketEventQueue.grant(moveObjectsLambda,
