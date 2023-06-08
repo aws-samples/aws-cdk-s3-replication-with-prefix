@@ -1,23 +1,28 @@
-# Welcome to your CDK TypeScript project!
+# aws-cdk-s3-replication-with-prefix
 
-This is a blank project for TypeScript development with CDK.
+This cdk project demonstrates replicating S3 objects from a source bucket in one account
+to a destination bucket in another account with a custom prefix applied to the replicated objects.
 
-The `cdk.json` file tells the CDK Toolkit how to execute your app.
+## Architecture
 
-## Useful commands
+![Architecture](./images/architecture.drawio.png)
+
+## Deployment
 
  * `npm run build`   compile typescript to js
- * `npm run watch`   watch for changes and compile
- * `npm run test`    perform the jest unit tests
- * `cdk deploy`      deploy this stack to your default AWS account/region
- * `cdk diff`        compare deployed stack with current state
- * `cdk synth`       emits the synthesized CloudFormation template
 
-# Security
+### Context parameters
+ * **sourceAccount** : The account id the source bucket live in
+ * **sourceRegion** : The region the source bucket lives in
+ * **destinationAccount** : The account id the destination bucket live in
+ * **destinationRegion** : The region the destination bucket lives in
+ * **destinationPrefix**: The prefix that you want objects replicated to in the destination bucket
 
-See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more information.
+### Stacks
 
-## License
-
-This library is licensed under the MIT-0 License. See the LICENSE file.
-
+1) Deploy the replication role to the source account
+   1) `cdk deploy aws-cdk-s3-replication-with-prefix-destination-stack -c sourceAccount=<sourceAccount>  -c sourceRegion=<sourceRegion> -c sourceAccount=<sourceAccount> -c -destinationAccount=<destinationAccount> -c destinationRegion=<destinationRegion> -c destinationPrefix=<destinationPrefix>`
+2) Deploy the destination bucket and move object lambda to the destination account
+   1) `cdk deploy aws-cdk-s3-replication-with-prefix-destination-stack -c sourceRegion=<sourceRegion> -c sourceAccount=<sourceAccount> -c -destinationAccount=<destinationAccount> -c destinationRegion=<destinationRegion> -c destinationPrefix=<destinationPrefix>`
+3) Deploy the source bucket to the source account with replication rules to the destination account
+   1) `cdk deploy aws-cdk-s3-replication-with-prefix-source-stack -c sourceRegion=<sourceRegion> -c sourceAccount=<sourceAccount> -c -destinationAccount=<destinationAccount> -c destinationRegion=<destinationRegion> -c destinationPrefix=<destinationPrefix>`

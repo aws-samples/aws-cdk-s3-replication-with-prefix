@@ -17,7 +17,7 @@ export interface DestinationBucketConfig {
 // import * as sqs from 'aws-cdk-lib/aws-sqs';
 export interface S3SourceStackProps extends StackProps {
     stagingBucket: DestinationBucketConfig
-    replicationRoleName: string
+    replicationRoleArn: string
 }
 
 export interface S3DestinationStackProps extends StackProps {
@@ -25,6 +25,22 @@ export interface S3DestinationStackProps extends StackProps {
     sourceRoleName: string
     destinationPrefix: string
 
+}
+
+export class S3SourceReplicationRoleStack extends Stack{
+    readonly roleArn:string
+    constructor(scope: Construct, id: string,replicationRoleName: string, props?: StackProps) {
+        super(scope, id, props);
+        const replicationRole = new Role(this, "replication-role", {
+            roleName: replicationRoleName,
+            assumedBy: new ServicePrincipal("s3.amazonaws.com")
+        })
+        this.roleArn=replicationRole.roleArn
+        new CfnOutput(this, "source-replication-role-arn-output", {
+            description: "source-replication-role-arn",
+            value: replicationRole.roleArn
+        })
+    }
 }
 
 export class S3SourceStack extends Stack {
@@ -64,9 +80,9 @@ export class S3SourceStack extends Stack {
             ],
             resources: [`${props.stagingBucket.bucketArn}/*`]
         })
-        const replicationRole = new Role(this, "replication-role", {
-            roleName: props.replicationRoleName,
-            assumedBy: new ServicePrincipal("s3.amazonaws.com")
+        const replicationRole = Role.fromRoleArn(this,"replication-role",props.replicationRoleArn,{
+
+            mutable: true
         })
 
         const cfnBucket = sourceBucket.node.defaultChild as CfnBucket
@@ -112,9 +128,10 @@ export class S3SourceStack extends Stack {
             }],
 
         }
-        replicationRole.addToPolicy(bucketReplicationPolicyStatement)
-        replicationRole.addToPolicy(objectReplicationPolicyStatement)
-        replicationRole.addToPolicy(destinationPolicyStatement)
+        const role = replicationRole as Role
+        role.addToPolicy(bucketReplicationPolicyStatement)
+        role.addToPolicy(objectReplicationPolicyStatement)
+        role.addToPolicy(destinationPolicyStatement)
         new CfnOutput(this, "source-bucket-output", {
             description: "source-bucket-name",
             value: sourceBucket.bucketName
