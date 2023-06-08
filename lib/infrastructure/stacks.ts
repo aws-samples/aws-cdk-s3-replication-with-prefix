@@ -25,6 +25,7 @@ import {NodejsFunction} from "aws-cdk-lib/aws-lambda-nodejs";
 import {Runtime, Tracing} from "aws-cdk-lib/aws-lambda";
 import * as path from "path";
 import {SqsEventSource} from "aws-cdk-lib/aws-lambda-event-sources";
+import {NagSuppressions} from "cdk-nag";
 
 export interface DestinationBucketConfig {
     bucketArn: string,
@@ -57,17 +58,25 @@ export class S3SourceReplicationRoleStack extends Stack{
             description: "source-replication-role-arn",
             value: replicationRole.roleArn
         })
+
     }
 }
 
 export class S3SourceStack extends Stack {
     constructor(scope: Construct, id: string, props: S3SourceStackProps) {
         super(scope, id, props);
+        const serverLogsBucket = new Bucket(this,"source-server-logs",{
+            blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
+            removalPolicy: RemovalPolicy.DESTROY,
+            enforceSSL: true
+        })
         const sourceBucket = new Bucket(this, "source-bucket", {
             blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
             removalPolicy: RemovalPolicy.DESTROY,
-            versioned: true
-
+            versioned: true,
+            enforceSSL: true,
+            serverAccessLogsBucket: serverLogsBucket,
+            serverAccessLogsPrefix: "source"
         })
         const bucketReplicationPolicyStatement = new PolicyStatement({
             effect: Effect.ALLOW,
@@ -153,7 +162,12 @@ export class S3SourceStack extends Stack {
             description: "source-bucket-name",
             value: sourceBucket.bucketName
         })
-
+        NagSuppressions.addStackSuppressions(this,[
+            {
+                id:"AwsSolutions-IAM5",
+                reason: "All wildcard permission are on purpose for the sample"
+            }
+        ])
     }
 }
 
@@ -162,12 +176,20 @@ export class S3DestinationStack extends Stack {
 
     constructor(scope: Construct, id: string, props: S3DestinationStackProps) {
         super(scope, id, props);
+        const serverLogsBucket = new Bucket(this,"destination-server-logs",{
+            blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
+            removalPolicy: RemovalPolicy.DESTROY,
+            enforceSSL: true
+        })
         const stagingBucket = new Bucket(this, "staging-bucket", {
             blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
             removalPolicy: RemovalPolicy.DESTROY,
             bucketName: PhysicalName.GENERATE_IF_NEEDED,
             versioned: true,
             objectOwnership: ObjectOwnership.BUCKET_OWNER_ENFORCED,
+            enforceSSL:true,
+            serverAccessLogsBucket: serverLogsBucket,
+            serverAccessLogsPrefix: "staging"
 
         })
         const sourcePrincipal: ArnPrincipal = new ArnPrincipal(`arn:aws:iam::${props.sourceAccount}:role/${props.sourceRoleName}`)
@@ -214,10 +236,21 @@ export class S3DestinationStack extends Stack {
             blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
             removalPolicy: RemovalPolicy.DESTROY,
             versioned: true,
+            enforceSSL: true,
+            serverAccessLogsBucket: serverLogsBucket,
+            serverAccessLogsPrefix: "destination"
         })
         const visibilityTimeout = 60 * 6
+        const stagingBucketEventDLQ = new Queue(this, 'staging-bucket-event-queue-dlq', {
+            enforceSSL:true
+        });
         const stagingBucketEventQueue = new Queue(this, 'staging-bucket-event-queue', {
-            visibilityTimeout: Duration.seconds(visibilityTimeout)
+            visibilityTimeout: Duration.seconds(visibilityTimeout),
+            deadLetterQueue: {
+                queue: stagingBucketEventDLQ,
+                maxReceiveCount: 3
+            },
+            enforceSSL:true
         });
         stagingBucket.addEventNotification(
             EventType.OBJECT_CREATED,
@@ -230,7 +263,7 @@ export class S3DestinationStack extends Stack {
         const moveObjectsLambda = new NodejsFunction(this, "moveObjectsLambda", {
             memorySize: 128,
             timeout: Duration.seconds(visibilityTimeout / 6),
-            runtime: Runtime.NODEJS_14_X,
+            runtime: Runtime.NODEJS_18_X,
             handler: "lambdaHandler",
             entry: path.join(__dirname, `../runtime/functions/moveObjectsLambda.ts`),
             environment: {
@@ -285,6 +318,17 @@ export class S3DestinationStack extends Stack {
             value: stagingBucket.bucketName
 
         })
-
+        NagSuppressions.addStackSuppressions(this,[
+            {
+                id:"AwsSolutions-IAM4",
+                reason: "AWS Managed Policies allowed for aws-samples"
+            }
+        ])
+        NagSuppressions.addStackSuppressions(this,[
+            {
+                id:"AwsSolutions-IAM5",
+                reason: "All wildcard permission are on purpose for the sample"
+            }
+        ])
     }
 }

@@ -22,7 +22,7 @@ import * as cdk from 'aws-cdk-lib';
 import {S3SourceStack, S3DestinationStack, S3SourceReplicationRoleStack} from '../lib/infrastructure/stacks';
 import {Aspects, PhysicalName} from "aws-cdk-lib";
 import {Configuration} from "aws-cdk/lib/settings";
-import {AwsSolutionsChecks} from "cdk-nag";
+import {AwsSolutionsChecks, NagSuppressions} from "cdk-nag";
 
 const app = new cdk.App();
 
