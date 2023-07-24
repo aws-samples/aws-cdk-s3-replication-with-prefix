@@ -77,6 +77,7 @@ export const lambdaHandler = async (
 function getSourceAndDest(s3EventRecord: S3EventRecord): SourceAndDestination {
     const sourceKey = (decodeURIComponent(s3EventRecord.s3.object.key)).replace(/\+/g, " ")
     const sourceBucket = s3EventRecord.s3.bucket.name
+    const destinationPrefix=getDestinationPrefix(process.env.DESTINATION_PREFIX!)
     return {
         sourceKey: sourceKey,
         sourceBucket: sourceBucket,
@@ -84,14 +85,27 @@ function getSourceAndDest(s3EventRecord: S3EventRecord): SourceAndDestination {
         copySource: `${sourceBucket}/${s3EventRecord.s3.object.key}?versionId=${s3EventRecord.s3.object.versionId}`,
         destinationBucket: process.env.DESTINATION_BUCKET_NAME!,
 
-        destinationKey: `${process.env.DESTINATION_PREFIX}/${sourceKey}`,
-        destination: `${process.env.DESTINATION_BUCKET_NAME}/${process.env.DESTINATION_PREFIX}/${s3EventRecord.s3.object.key}`
+        destinationKey: `${destinationPrefix}/${sourceKey}`,
+        destination: `${process.env.DESTINATION_BUCKET_NAME}/${destinationPrefix}/${s3EventRecord.s3.object.key}`
     }
+}
+
+function getDestinationPrefix(prefixValue: string): string {
+    const matches=/^(.*)=\${date}$/.exec(prefixValue)
+    if (matches != undefined) {
+
+            const today = new Date()
+            //use dynamic date
+            return `${matches[1]}=${today.toISOString().split('T')[0]}`
+
+    }
+    return prefixValue
 }
 
 async function copyObject(sqsRecord: SQSRecord, s3EventRecord: S3EventRecord): Promise<MoveResponse> {
     console.log(`${s3EventRecord.eventName}`)
     const sourceAndDest = getSourceAndDest(s3EventRecord)
+    console.log(`SourceAndDest:${JSON.stringify(sourceAndDest)}`)
     const copyCommand = new CopyObjectCommand({
         Bucket: sourceAndDest.destinationBucket,
         Key: sourceAndDest.destinationKey,
