@@ -58,4 +58,6 @@ test('Test getKeyMapping', async () => {
 	expect(mapping).toEqual(`d=${new Date().toISOString().split('T')[0]}/AWS:ComplianceItem/i-00620f2f8c6de45ff.json`)
 	mapping=getKeyMapping('[{"oldPath":"AWS:(ComplianceItem|ComplianceSummary|InstanceInformation)\/.*\/(.*\.json)","newPath":"inventory/AWS:$1/d=${date}/$2"}]',"AWS:ComplianceItem/accountid=123456789012/region=us-east-2/resourcetype=ManagedInstanceInventory/i-00620f2f8c6de45ff.json")
 	expect(mapping).toEqual(`inventory/AWS:ComplianceItem/d=${new Date().toISOString().split('T')[0]}/i-00620f2f8c6de45ff.json`)
+	mapping=getKeyMapping('newStaticPath',"AWS:ComplianceItem/accountid=123456789012/region=us-east-2/resourcetype=ManagedInstanceInventory/i-00620f2f8c6de45ff.json")
+	expect(mapping).toEqual(`newStaticPath/AWS:ComplianceItem/accountid=123456789012/region=us-east-2/resourcetype=ManagedInstanceInventory/i-00620f2f8c6de45ff.json`)
 })
