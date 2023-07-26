@@ -41,7 +41,7 @@ export interface S3SourceStackProps extends StackProps {
 export interface S3DestinationStackProps extends StackProps {
     sourceAccount: string,
     sourceRoleName: string
-    destinationPrefix: string
+    destinationKey: string
 
 }
 
@@ -273,7 +273,7 @@ export class S3DestinationStack extends Stack {
             entry: path.join(__dirname, `../runtime/functions/moveObjectsLambda.ts`),
             environment: {
                 DESTINATION_BUCKET_NAME: destinationBucket.bucketName,
-                DESTINATION_PREFIX: props.destinationPrefix
+                DESTINATION_KEY: props.destinationKey
             },
             tracing: Tracing.ACTIVE,
 

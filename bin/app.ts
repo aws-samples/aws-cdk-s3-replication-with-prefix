@@ -30,7 +30,7 @@ const app = new cdk.App();
 
 const destinationAccount=app.node.tryGetContext("destinationAccount")
 const destinationRegion=app.node.tryGetContext("destinationRegion")
-const destinationPrefix=app.node.tryGetContext("destinationPrefix")
+const destinationPrefix=app.node.tryGetContext("destinationKey")
 const sourceAccount=app.node.tryGetContext("sourceAccount")
 const sourceRegion=app.node.tryGetContext("sourceRegion")
 
@@ -54,7 +54,7 @@ const destinationStack=new S3DestinationStack(app, 'aws-cdk-s3-replication-with-
     },
     sourceRoleName: replicationRoleName,
     sourceAccount: sourceAccount,
-    destinationPrefix: destinationPrefix
+    destinationKey: destinationPrefix
 });
 
 new S3SourceStack(app, 'aws-cdk-s3-replication-with-prefix-source-stack', {

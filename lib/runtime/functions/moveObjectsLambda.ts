@@ -77,7 +77,7 @@ export const lambdaHandler = async (
 function getSourceAndDest(s3EventRecord: S3EventRecord): SourceAndDestination {
 	const sourceKey = (decodeURIComponent(s3EventRecord.s3.object.key)).replace(/\+/g, " ")
 	const sourceBucket = s3EventRecord.s3.bucket.name
-	const destinationPrefix = getKeyMapping(process.env.DESTINATION_PREFIX!, sourceKey)
+	const destinationKey = getKeyMapping(process.env.DESTINATION_KEY!, sourceKey)
 	return {
 		sourceKey: sourceKey,
 		sourceBucket: sourceBucket,
@@ -85,8 +85,8 @@ function getSourceAndDest(s3EventRecord: S3EventRecord): SourceAndDestination {
 		copySource: `${sourceBucket}/${s3EventRecord.s3.object.key}?versionId=${s3EventRecord.s3.object.versionId}`,
 		destinationBucket: process.env.DESTINATION_BUCKET_NAME!,
 
-		destinationKey: `${destinationPrefix}/${sourceKey}`,
-		destination: `${process.env.DESTINATION_BUCKET_NAME}/${destinationPrefix}/${s3EventRecord.s3.object.key}`
+		destinationKey: destinationKey,
+		destination: `${process.env.DESTINATION_BUCKET_NAME}/${destinationKey}`
 	}
 }
 
