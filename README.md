@@ -34,7 +34,7 @@ to a destination bucket in another account with a custom prefix applied to the r
 ### Dynamic destination
 
 **destinationKey** - Can either be a static value like "newPath" or a dynamic value. Dynamic values include the following;
-   *  **<name>=${date}[:prefix|:suffix]** - will replace <name>=${date} either at the beginning (prefix, default) or the end (suffix) of the destination path  
+   *  **FIELD_NAME=${date}[:prefix|:suffix]** - will replace FIELD_NAME=${date} either at the beginning (prefix, default) or the end (suffix) of the destination path  
    *  **["oldPath":"regex that matches the sourcePath","newPath":"replacement path using regex groups for replacement"]** - Array of json ojects with keys oldPath and newPath. oldPath is a regex that is used to match the original source path and then replace it with the value in newPath
 ## Security
 
