@@ -4,7 +4,7 @@
 
 // example test. To run these tests, uncomment this file along with the
 // example resource in lib/aws-cdk-s3-replication-with-prefix-stack.ts
-import {lambdaHandler} from "../lib/runtime/functions/moveObjectsLambda";
+import {getKeyMapping, lambdaHandler} from "../lib/runtime/functions/moveObjectsLambda";
 
 const OLD_ENV = process.env;
 
@@ -45,3 +45,16 @@ const event={
 await lambdaHandler(event,{})
 
 });
+
+
+test('Test getKeyMapping', async () => {
+	let mapping=getKeyMapping('d=${date}',"AWS:ComplianceItem/accountid=123456789012/region=us-east-2/resourcetype=ManagedInstanceInventory/i-00620f2f8c6de45ff.json")
+	expect(mapping).toEqual(`d=${new Date().toISOString().split('T')[0]}/AWS:ComplianceItem/accountid=123456789012/region=us-east-2/resourcetype=ManagedInstanceInventory/i-00620f2f8c6de45ff.json`)
+	mapping=getKeyMapping('d=${date}:prefix',"AWS:ComplianceItem/accountid=123456789012/region=us-east-2/resourcetype=ManagedInstanceInventory/i-00620f2f8c6de45ff.json")
+	expect(mapping).toEqual(`d=${new Date().toISOString().split('T')[0]}/AWS:ComplianceItem/accountid=123456789012/region=us-east-2/resourcetype=ManagedInstanceInventory/i-00620f2f8c6de45ff.json`)
+	mapping=getKeyMapping('d=${date}:suffix',"AWS:ComplianceItem/accountid=123456789012/region=us-east-2/resourcetype=ManagedInstanceInventory/i-00620f2f8c6de45ff.json")
+	expect(mapping).toEqual(`AWS:ComplianceItem/accountid=123456789012/region=us-east-2/resourcetype=ManagedInstanceInventory/d=${new Date().toISOString().split('T')[0]}/i-00620f2f8c6de45ff.json`)
+	mapping=getKeyMapping(`[{"oldPath":"^AWS:ComplianceItem/(.*)/(.*.json)$","newPath":"d=\${date}/AWS:ComplianceItem/$2"}]`,"AWS:ComplianceItem/accountid=123456789012/region=us-east-2/resourcetype=ManagedInstanceInventory/i-00620f2f8c6de45ff.json")
+	expect(mapping).toEqual(`d=${new Date().toISOString().split('T')[0]}/AWS:ComplianceItem/i-00620f2f8c6de45ff.json`)
+
+})
