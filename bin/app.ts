@@ -30,11 +30,11 @@ const app = new cdk.App();
 
 const destinationAccount=app.node.tryGetContext("destinationAccount")
 const destinationRegion=app.node.tryGetContext("destinationRegion")
-const destinationPrefix=app.node.tryGetContext("destinationKey")
+const destinationKey=app.node.tryGetContext("destinationKey")
 const sourceAccount=app.node.tryGetContext("sourceAccount")
 const sourceRegion=app.node.tryGetContext("sourceRegion")
 
-if (destinationAccount == null || destinationRegion == null || destinationAccount == null || destinationRegion == null || destinationPrefix==null ) {
+if (destinationAccount == null || destinationRegion == null || destinationKey == null || sourceAccount == null || sourceRegion==null ) {
     throw Error("You must specify source account, source region, destination account, destination region, and destination prefix via cdk context (-c sourceAccount=<sourceAccount> -c sourceRegion=<sourceRegion> -c destinationAccount=<destinationAccount> -c destinationRegion=<destinationRegion> -c -c destinationPrefix=<destinationPrefix>)")
 }
 
@@ -54,7 +54,7 @@ const destinationStack=new S3DestinationStack(app, 'aws-cdk-s3-replication-with-
     },
     sourceRoleName: replicationRoleName,
     sourceAccount: sourceAccount,
-    destinationKey: destinationPrefix
+    destinationKey: destinationKey
 });
 
 new S3SourceStack(app, 'aws-cdk-s3-replication-with-prefix-source-stack', {
