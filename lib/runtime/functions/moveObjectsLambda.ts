@@ -57,11 +57,18 @@ export const lambdaHandler = async (
 	const promises: Promise<MoveResponse>[] = event.Records.flatMap(r0 => {
 		const sqsRecord = r0 as SQSRecord
 		const s3Event: S3Event = JSON.parse(sqsRecord.body)
-		const sqsArn = arn.parse(r0.eventSourceARN)
-		return s3Event.Records.map(r1 => {
-			const s3EventRecord = r1 as S3EventRecord
-			return onObjectRecord(sqsRecord, s3EventRecord)
-		})
+		if ("Records" in s3Event) {
+
+
+			return s3Event.Records.map(r1 => {
+				const s3EventRecord = r1 as S3EventRecord
+				return onObjectRecord(sqsRecord, s3EventRecord)
+			})
+		} else {
+			return []
+
+		}
+
 
 	})
 	return new Promise<MoveResponse[]>((resolve, reject) => {
@@ -136,14 +143,14 @@ export function getKeyMapping(keyMapping: string, oldPath: string): string {
 	return replaceWithDate(`${keyMapping}/${oldPath}`)
 }
 
-function replaceWithDate(path:string):string{
+function replaceWithDate(path: string): string {
 	let matches = /(\${date})/.exec(path)
 	if (matches != undefined) {
 
 		const today = new Date()
 		//use dynamic date
 		const date = `${today.toISOString().split('T')[0]}`
-		return path.replace("${date}",date)
+		return path.replace("${date}", date)
 	}
 	return path
 }
@@ -192,6 +199,12 @@ async function tagDestinationObject(sourceAndDest: SourceAndDestination, moveRes
 	}, {
 		Key: "mv-delete-versionId",
 		Value: moveResponse.deleteVersionId
+	}, {
+		Key: "mv-original-key",
+		Value: sourceAndDest.sourceKey
+	}, {
+		Key: "mv-original-bucket",
+		Value: sourceAndDest.sourceBucket
 	}]
 
 	const putObjectTaggingCommand = new PutObjectTaggingCommand({
@@ -225,25 +238,23 @@ async function deleteSourceObject(sourceDest: SourceAndDestination, moveResponse
 	const deleteObjectCommand = new DeleteObjectCommand({
 		Bucket: sourceDest.sourceBucket,
 		Key: sourceDest.sourceKey,
-
-
 	})
-
-	return s3Client.send(deleteObjectCommand).then(r5 => {
-		if (r5.DeleteMarker != null && r5.DeleteMarker) {
-			console.log(`Delete marker ${r5.VersionId} for : ${sourceDest.sourceBucket}/${sourceDest.sourceKey}?versionId=${sourceDest.sourceVersionId}`)
-
+	try {
+		const deleteObjectResponse = await s3Client.send(deleteObjectCommand)
+		if (deleteObjectResponse.DeleteMarker != null && deleteObjectResponse.DeleteMarker) {
+			console.log(`Delete marker ${deleteObjectResponse.VersionId} for : ${sourceDest.sourceBucket}/${sourceDest.sourceKey}?versionId=${sourceDest.sourceVersionId}`)
 			return {
 				bucket: moveResponse.bucket,
 				key: moveResponse.key,
 				success: true,
 				versionId: moveResponse.versionId,
-				deleteVersionId: r5.VersionId
+				deleteVersionId: deleteObjectResponse.VersionId
 			} as MoveResponse
 		} else {
 			return moveResponse
 		}
-	}).catch(error => {
+	}catch(e){
+		const error=e as Error
 		console.error(`deleteSourceObject: ${error}`)
 		return {
 			bucket: moveResponse.bucket,
@@ -251,7 +262,8 @@ async function deleteSourceObject(sourceDest: SourceAndDestination, moveResponse
 			success: false,
 			error: error.message
 		} as MoveResponse
-	})
+	}
+
 }
 
 async function deleteDestinationObject(sqsRecord: SQSRecord, s3EventRecord: S3EventRecord, sourceAndDestination: SourceAndDestination): Promise<MoveResponse> {
@@ -291,8 +303,9 @@ async function deleteMessage(sqsRecord: SQSRecord, moveResponse: MoveResponse): 
 	return sqsClient.send(deleteMessageCommand).then(value1 => {
 		console.log(`Removed message for ${moveResponse.receiptHandle}`)
 		return moveResponse
-	}).catch(error => {
-		console.error(`Could not remove message for ${moveResponse.receiptHandle}`)
+	}).catch(e => {
+		const error: Error = e as Error
+		console.error(`Could not remove message for ${moveResponse.receiptHandle}: ${error.message}`)
 		return {
 			bucket: moveResponse.bucket,
 			key: moveResponse.key,
@@ -341,13 +354,22 @@ async function onObjectRecord(sqsRecord: SQSRecord, s3EventRecord: S3EventRecord
 	const sqsArn = arn.parse(sqsRecord.eventSourceARN)
 	const sourceAndDest = getSourceAndDest(s3EventRecord)
 	if (s3EventRecord.eventName.startsWith("ObjectCreated")) {
-		return copyObject(sqsRecord, s3EventRecord).then(r0 => {
-			return deleteSourceObject(sourceAndDest, r0)
-		}).then(r1 => {
-			return tagDestinationObject(sourceAndDest, r1)
-		}).then(r2 => {
-			return deleteMessage(sqsRecord, r2)
-		})
+		try {
+			const moveResponse = await copyObject(sqsRecord, s3EventRecord)
+			await deleteSourceObject(sourceAndDest, moveResponse)
+			await tagDestinationObject(sourceAndDest, moveResponse)
+			await deleteMessage(sqsRecord, moveResponse)
+			return moveResponse
+		} catch (e) {
+			const error: Error = e as Error
+			console.error(`Could not process record ${sqsRecord.receiptHandle} for s3 event ${s3EventRecord.s3.object.key}: ${error.message}`)
+			return {
+				bucket: s3EventRecord.s3.bucket.name,
+				key: s3EventRecord.s3.object.key,
+				success: false,
+				error: error.message
+			} as MoveResponse
+		}
 
 	} else {
 		return shouldDeleteDestination(sourceAndDest).then(shouldDelete => {

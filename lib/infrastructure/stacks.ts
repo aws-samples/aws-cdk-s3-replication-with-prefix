@@ -246,10 +246,12 @@ export class S3DestinationStack extends Stack {
             autoDeleteObjects: true,
         })
         const visibilityTimeout = 60 * 6
-        const stagingBucketEventDLQ = new Queue(this, 'staging-bucket-event-queue-dlq', {
+        const stagingBucketEventDLQ = new Queue(this, 'event-queue-dlq', {
+
             enforceSSL:true
         });
-        const stagingBucketEventQueue = new Queue(this, 'staging-bucket-event-queue', {
+        const stagingBucketEventQueue = new Queue(this, 'event-queue', {
+
             visibilityTimeout: Duration.seconds(visibilityTimeout),
             deadLetterQueue: {
                 queue: stagingBucketEventDLQ,
@@ -259,10 +261,6 @@ export class S3DestinationStack extends Stack {
         });
         stagingBucket.addEventNotification(
             EventType.OBJECT_CREATED,
-            new SqsDestination(stagingBucketEventQueue),
-        );
-        stagingBucket.addEventNotification(
-            EventType.OBJECT_REMOVED,
             new SqsDestination(stagingBucketEventQueue),
         );
         const moveObjectsLambda = new NodejsFunction(this, "moveObjectsLambda", {
