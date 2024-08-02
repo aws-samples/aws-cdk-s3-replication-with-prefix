@@ -266,7 +266,7 @@ export class S3DestinationStack extends Stack {
         const moveObjectsLambda = new NodejsFunction(this, "moveObjectsLambda", {
             memorySize: 128,
             timeout: Duration.seconds(visibilityTimeout / 6),
-            runtime: Runtime.NODEJS_18_X,
+            runtime: Runtime.NODEJS_20_X,
             handler: "lambdaHandler",
             entry: path.join(__dirname, `../runtime/functions/moveObjectsLambda.ts`),
             environment: {
